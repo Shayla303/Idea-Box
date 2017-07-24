@@ -1,144 +1,174 @@
+var ideaList = $('.card-container');
+var myIdeas = [];
 
-// ON WINDOW LOAD//
-$(window).on('load' , function () {
-  getFromLocal ();
-  drawIdeas ();
+$(window).on('load', function() {
+  retrieveLocalStorage();
+  clearInputs();
 })
 
-//GLOBAL VARIABLES//
-var ideas = []
-
-//PREVENT DEFAULT BUTTON EVENT LISTENER//
-$('.save-btn').on( 'click', function (e){
-  e.preventDefault();
-  createIdea();
-  drawIdeas();
-})
-
-//ADD NEW CARDS TO APPEND TO THE PAGE//
-function drawIdeas (array) {
-  var renderArray = array || ideas;
-  $('.card-container').empty();
-  renderArray.forEach(function(idea){
-    var card = `<article class="idea-card" id="${idea.id}">
-      <div class="top">
-        <h2 contenteditable>${idea.title}</h2>
-        <div class="delete-icon">
-        </div>
-      </div>
-      <div class="middle">
-        <p class="card-body" contenteditable>${idea.body}</p>
-      </div>
-      <div class="bottom">
-        <div class="vote-btn-container">
-          <div class="upvote">
-          </div>
-          <div class="downvote">
-          </div>
-        </div>
-        <p id="quality">quality:</p>
-        <p class="quality-vote">${idea.quality}</p>
-      </div>
-    </article>`
-    $('.card-container').append(card)
-  })
-}
-
-//CREATE AN IDEA-ALLOW IDEAS TO SAVE TO LOCAL STORAGE//CONSTRUCTOR FUNCTION//
-
-function createIdea () {
+$('.save-btn').on('click', function(event) {
+  event.preventDefault();
+  var id = Date.now();
   var title = $('.title-input').val();
   var body = $('.body-input').val();
-  var id = Date.now();
-  var quality = "swill"
-  ideas.push({title,body,id,quality})
-  localStorage.setItem('ideas', JSON.stringify(ideas))
-}
+  var newIdea = new Idea(id, title, body);
+  prependIdea(newIdea);
+  myIdeas.push(newIdea);
+  updateLocalStorage();
+  clearInputs();
+})
 
-function getFromLocal () {
-  var storedIdeas = JSON.parse(localStorage.getItem('ideas'))
-  ideas=storedIdeas;
-}
+$('.search-input').on('input', function() {
+  searchFilter();
+})
 
-//DELETE BUTTON EVENT LISTENER //
-$('.card-container').on('click', '.delete-icon', function(){
-  var id= ($(this).closest('article')[0].id)
-  for (var i=0; i<ideas.length; i++) {
-    if (ideas[i].id == id) {
-      ideas.splice(i, 1)
+ideaList.on('input keydown', '.card-title', function(event) {
+  if (event.keyCode === 13) {
+    event.preventDefault();
+    this.blur();
+  }
+  var id = $(this).closest('.idea-card')[0].id;
+  var title = $(this).text();
+  myIdeas.forEach(function(idea) {
+    if (idea.id == id) {
+      idea.title = title;
     }
-  localStorage.setItem('ideas', JSON.stringify(ideas))
-  }
-  $(this).closest('.idea-card').remove()
-})
-
-// UPVOTE EVENT LISTENER //
- $('.card-container').on ('click','.upvote',function () {
-   var id= ($(this).closest('article')[0].id)
-   for (var i=0; i<ideas.length; i++) {
-     if (ideas[i].id == id) {
-       if (ideas[i].quality == "swill"){
-         ideas[i].quality = "plausible"
-       } else if (ideas[i].quality == "plausible"){
-         ideas[i].quality = "genius"
-       }
-     }
-   localStorage.setItem('ideas', JSON.stringify(ideas))
-  }
-  drawIdeas();
- })
-
- //DOWNVOTE EVENT LISTENER //
- $('.card-container').on ('click','.downvote',function () {
-   var id= ($(this).closest('article')[0].id)
-   for (var i=0; i<ideas.length; i++) {
-     if (ideas[i].id == id) {
-       if (ideas[i].quality == "genius"){
-         ideas[i].quality = "plausible"
-       } else if (ideas[i].quality == "plausible"){
-         ideas[i].quality = "swill"
-       }
-     }
-   localStorage.setItem('ideas', JSON.stringify(ideas))
-  }
-  drawIdeas();
- })
-
-//EVENT LISTENERS ALLOWING TEXT EDITS TO BE SAVED BY CLICKING ON THE BODY UPON RELOAD THE EDITS WILL SAVE TO LOCAL STORAGE// THESE EDITS CAN OCCUR ON THE TITLE OR BODY OF THE CARD AND BE SAVED//
-
-$('.card-container').on ('keyup blur', 'h2', function (e) {
-  console.log(e.type)
-  if(e.which===13 || e.type === "focusout"){
-    var id= ($(this).closest('article')[0].id)
-    for (var i=0; i<ideas.length; i++) {
-      if (ideas[i].id == id) {
-        ideas[i].title = $(this).text()
-      }
-    localStorage.setItem('ideas', JSON.stringify(ideas))
-   }
-   drawIdeas();
- }
-})
-
-$('.card-container').on ('keyup blur', '.card-body', function (e) {
-  if (e.which===13 || e.type === "focusout"){
-  var id= ($(this).closest('article')[0].id)
-  for (var i=0; i<ideas.length; i++) {
-    if (ideas[i].id == id) {
-      ideas[i].body = $(this).text()
-    }
-  localStorage.setItem('ideas', JSON.stringify(ideas))
- }
- drawIdeas();
- }
-})
-
-// EVENT LISTENER TO ALLOW IDEAS TO FILTER(BECOME SEARCHABLE BASED ON INPUT IN TITLE AND BODY FIELDS)
-$('.search-input').on ('keyup', function (e) {
-  var search = (e.target.value).toLowerCase()
-  //filter through the array to match anything that matches the text of the search  as input on the title and body
-  var matches = ideas.filter(function(idea){
-    return idea.body.toLowerCase().includes(search) || idea.title.toLowerCase().includes(search);
   })
-  drawIdeas(matches)
+  updateLocalStorage();
 })
+
+ideaList.on('input keydown', '.card-body', function(event) {
+  if (event.keyCode === 13) {
+    event.preventDefault();
+    this.blur();
+  }
+  var id = $(this).closest('.idea-card')[0].id;
+  var body = $(this).text();
+  myIdeas.forEach(function(idea) {
+    if (idea.id == id) {
+      idea.body = body;
+    }
+  })
+  updateLocalStorage();
+})
+
+ideaList.on('click', '.upvote', function() {
+  var qualityVote = $(this).parents('.idea-card').find('.quality-vote');
+  var id = $(this).closest('.idea-card')[0].id;
+  storeUpQuality(id, qualityVote.text())
+  if (qualityVote.text() === 'swill') {
+    qualityVote.text('plausible')
+  } else if (qualityVote.text() === 'plausible') {
+    qualityVote.text('genius')
+  }
+})
+
+ideaList.on('click', '.downvote', function() {
+  var qualityVote = $(this).parents('.idea-card').find('.quality-vote');
+  var id = $(this).closest('.idea-card')[0].id;
+  storeDownQuality(id, qualityVote.text())
+  if (qualityVote.text() === 'genius') {
+    qualityVote.text('plausible')
+  } else if (qualityVote.text() === 'plausible') {
+    qualityVote.text('swill')
+  }
+})
+
+ideaList.on('click', '.delete-icon', function() {
+  var id = $(this).closest('.idea-card')[0].id;
+  myIdeas.forEach(function(idea, index) {
+    if (idea.id == id) {
+      myIdeas.splice(index, 1);
+    }
+  })
+  updateLocalStorage();
+  $(this).parents('.idea-card').remove();
+  clearInputs();
+})
+
+function Idea(id, title, body) {
+  this.id = id;
+  this.title = title;
+  this.body = body;
+  this.quality = 'swill';
+}
+
+function prependIdea(newIdea) {
+  var idea = `<article class="idea-card" id=${newIdea.id}>
+    <div class="top">
+      <h2 class="card-title" contenteditable="true">${newIdea.title}</h2>
+      <div class="delete-icon">
+      </div>
+    </div>
+    <div class="middle">
+      <p class="card-body" contenteditable="true">${newIdea.body}</p>
+    </div>
+    <div class="bottom">
+      <div class="vote-btn-container">
+        <div class="upvote">
+        </div>
+        <div class="downvote">
+        </div>
+      </div>
+      <p id="quality">quality:</p>
+      <p class="quality-vote">${newIdea.quality}</p>
+    </div>
+  </article>`;
+  ideaList.prepend(idea);
+}
+
+function updateLocalStorage() {
+  var stringifiedArray = JSON.stringify(myIdeas);
+  localStorage.setItem('ideas', stringifiedArray);
+}
+
+function retrieveLocalStorage() {
+  myIdeas = JSON.parse(localStorage.getItem('ideas')) || [];
+  myIdeas.forEach(function(idea) {
+    prependIdea(idea);
+  })
+}
+
+function storeUpQuality(id, quality) {
+  myIdeas.forEach(function(idea, index) {
+    if (idea.id == id) {
+      if (idea.quality === 'swill') {
+        idea.quality = 'plausible'
+      } else if (idea.quality === 'plausible') {
+        idea.quality = 'genius'
+      }
+    }
+  })
+  updateLocalStorage();
+}
+
+function storeDownQuality(id, quality) {
+  myIdeas.forEach(function(idea, index) {
+    if (idea.id == id) {
+      if (idea.quality === 'genius') {
+        idea.quality = 'plausible'
+      } else if (idea.quality === 'plausible') {
+        idea.quality = 'swill'
+      }
+    }
+  })
+  updateLocalStorage();
+}
+
+function searchFilter() {
+  var search = $('.search-input').val().toUpperCase();
+  var results = myIdeas.filter(function(idea) {
+    return idea.title.toUpperCase().includes(search) ||
+    idea.body.toUpperCase().includes(search) || idea.quality.toUpperCase().includes(search);
+  })
+  $('.card-container').empty();
+  results.forEach(function(result) {
+    prependIdea(result);
+  })
+}
+
+function clearInputs() {
+  $('.title-input').val('');
+  $('.body-input').val('');
+  $('.title-input').focus();
+}
